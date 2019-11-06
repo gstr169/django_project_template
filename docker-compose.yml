@@ -7,6 +7,7 @@ services:
     environment:
       POSTGRES_PASSWORD: $POSTGRES_PASSWORD
       POSTGRES_DB: $POSTGRES_DB
+    shm_size: '512m'
     restart: always
     networks:
       - db_network
@@ -15,6 +16,16 @@ services:
       - ./postgres/dump:/dump
       - ./postgres/init:/docker-entrypoint-initdb.d
 
+  project_redis:
+    container_name: "project_redis"
+    image: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    networks:
+      - redis_network
+    volumes:
+      - redis_volume:/data
+    restart: always
+
   project_app:
     container_name: "project_app"
     build:
@@ -22,22 +33,86 @@ services:
       dockerfile: Dockerfile
       args:
         PGPASSWORD: $POSTGRES_PASSWORD
+        PGDATABASE: $POSTGRES_DB
+        WORKERS: $WORKERS
+        APP_ENV: $APP_ENV
+    image: project_app
+    command: /code/entrypoint.sh
     tty: true
     expose:
-      - 8000
-    ports:
-      - "8001:8000"
+      - 8080
     restart: always
     networks:
       - db_network
+      - redis_network
+      - nginx_network
+    volumes:
+      - ./app:/code
+      - static_volume:/code/static
+    depends_on:
+      - project_db
+      - project_redis
+
+  project_nginx:
+    container_name: "project_nginx"
+    image: nginx
+    environment:
+      - VIRTUAL_HOST=project.localhost
+    expose:
+      - 80
+    restart: always
+    networks:
+      - default
+      - nginx_network
+    volumes:
+      - ./nginx/:/etc/nginx/conf.d
+      - static_volume:/django/static
+    depends_on:
+      - project_app
+
+  project_celery:
+    container_name: project_celery
+    image: project_app
+    command: celery -A configs.celery_init worker -l info
+    restart: always
+    networks:
+      - db_network
+      - redis_network
     volumes:
       - ./app:/code
     depends_on:
       - project_db
+      - project_redis
+      - project_app
+
+  project_celery-beat:
+    container_name: project_celery-beat
+    image: project_app
+    command: celery -A configs.celery_init beat -l info
+    restart: always
+    networks:
+      - db_network
+      - redis_network
+    volumes:
+      - ./app:/code
+    depends_on:
+      - project_db
+      - project_redis
+      - project_app
+
 
 networks:
+  default:
+    external:
+      name: nginx-proxy
   db_network:
+    driver: bridge
+  redis_network:
+    driver: bridge
+  nginx_network:
     driver: bridge
 
 volumes:
   pgdata_volume:
+  redis_volume:
+  static_volume:

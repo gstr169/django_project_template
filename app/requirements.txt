@@ -1,2 +1,10 @@
 django
 psycopg2
+djangorestframework
+gevent
+gunicorn
+celery
+redis
+django-async-messages-redux
+tqdm
+django-redis
