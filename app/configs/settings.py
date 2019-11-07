@@ -93,11 +93,11 @@ DATABASES = {
         'PORT': 5432,
     }
 }
-
+# TODO: change project name
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://nltgen_redis:6379/1",
+        "LOCATION": "redis://project_redis:6379/1",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
