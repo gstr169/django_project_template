@@ -49,7 +49,7 @@ if SENTRY_TOKEN is not None and not DEBUG:
     )
 
 VIRTUAL_HOST = os.environ.get('VIRTUAL_HOST')
-ALLOWED_HOSTS = ['project', VIRTUAL_HOST]
+ALLOWED_HOSTS = ['project_django', VIRTUAL_HOST]
 
 
 # Application definition
@@ -200,8 +200,10 @@ if DEBUG:
             return False
         return True
 
-
     INTERNAL_IPS = ('0.0.0.0', 'localhost', '127.0.0.1', VIRTUAL_HOST)
+
+    ALLOWED_HOSTS += list(INTERNAL_IPS[:-1])
+
     MIDDLEWARE += [
         'debug_toolbar.middleware.DebugToolbarMiddleware',
         'querycount.middleware.QueryCountMiddleware',
