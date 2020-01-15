@@ -2,23 +2,12 @@ FROM python:3
 
 ENV PYTHONBUFFERED 1
 
-ARG PGPASSWORD
-ENV PGPASSWORD=${PGPASSWORD}
-
-ARG PGDATABASE
-ENV PGDATABASE=${PGDATABASE}
-
-ARG WORKERS
-ENV WORKERS=${WORKERS}
-
-ARG APP_ENV
-ENV APP_ENV=${APP_ENV}
-
 RUN mkdir /code
 WORKDIR /code
 ADD . /code/
 
 RUN pip install --upgrade pip
+RUN pip install urllib3 --upgrade
 RUN pip install -r requirements.txt
 
 COPY ./entrypoint.sh /entrypoint.sh

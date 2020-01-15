@@ -8,3 +8,7 @@ redis
 django-async-messages-redux
 tqdm
 django-redis
+pillow
+django-debug-toolbar
+django-querycount
+sentry-sdk

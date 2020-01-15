@@ -31,8 +31,24 @@ if os.environ.get('APP_ENV', 'devel') == 'prod':
 else:
     DEBUG = True
 
-# TODO: change project name
-ALLOWED_HOSTS = ['project']
+# SENTRY PART
+SENTRY_TOKEN = os.environ.get('SENTRY_TOKEN')
+
+if SENTRY_TOKEN is not None and not DEBUG:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+
+    sentry_sdk.init(
+        # TODO: enter your sentry settings
+        dsn=f"https://{SENTRY_TOKEN}@sentry.io/nnnnnnn",
+        integrations=[DjangoIntegration(), CeleryIntegration(), RedisIntegration()],
+        send_default_pii=True
+    )
+
+VIRTUAL_HOST = os.environ.get('VIRTUAL_HOST')
+ALLOWED_HOSTS = ['project', VIRTUAL_HOST]
 
 
 # Application definition
@@ -44,12 +60,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -63,8 +81,7 @@ ROOT_URLCONF = 'configs.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')]
-        ,
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -79,21 +96,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'configs.wsgi.application'
 
+CORS_ORIGIN_ALLOW_ALL = True
 
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
-# TODO: change project name
+database_name = os.environ.get('PGDATABASE')
+if database_name == '':
+    database_name = 'postgres'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('PGDATABASE', 'postgres'),
+        'NAME': database_name,
         'USER': 'postgres',
+        # TODO: change project db name
         'HOST': 'project_db',
         'PORT': 5432,
     }
 }
-# TODO: change project name
+# TODO: change project redis name
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -145,9 +166,15 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
+# Media files (FileField, ImageField)
+# https://docs.djangoproject.com/en/2.2/ref/settings/#media-root
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 # Celery settings
 # https://docs.celeryproject.org/en/latest/userguide/configuration.html
-# TODO: change project name
+# TODO: change project redis name
 CELERY_BROKER_URL = 'redis://project_redis:6379/0'
 CELERY_RESULT_BACKEND = 'redis://project_redis:6379/0'
 CELERY_RESULT_EXPIRES = 3600
@@ -158,7 +185,60 @@ CELERY_IMPORTS = ['utils.tasks', ]
 
 CELERY_BEAT_SCHEDULE = {
     'backup_db': {
-         'task': 'utils.tasks.backup_task',
-         'schedule': crontab(hour='6', minute='0'),
+        'task': 'utils.tasks.backup_task',
+        'schedule': crontab(hour='6', minute='0'),
+        # 'schedule': timedelta(hours=3),
     },
 }
+
+# debug toolbar setup
+if DEBUG:
+    def show_toolbar(request):
+
+        if request.is_ajax():
+            return False
+        return True
+
+
+    INTERNAL_IPS = ('0.0.0.0', 'localhost', '127.0.0.1', VIRTUAL_HOST)
+    MIDDLEWARE += [
+        'debug_toolbar.middleware.DebugToolbarMiddleware',
+        'querycount.middleware.QueryCountMiddleware',
+    ]
+
+    INSTALLED_APPS += [
+        'debug_toolbar',
+    ]
+
+    DEBUG_TOOLBAR_PANELS = [
+        'debug_toolbar.panels.versions.VersionsPanel',
+        'debug_toolbar.panels.timer.TimerPanel',
+        'debug_toolbar.panels.settings.SettingsPanel',
+        'debug_toolbar.panels.headers.HeadersPanel',
+        'debug_toolbar.panels.request.RequestPanel',
+        'debug_toolbar.panels.sql.SQLPanel',
+        'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+        'debug_toolbar.panels.templates.TemplatesPanel',
+        'debug_toolbar.panels.cache.CachePanel',
+        'debug_toolbar.panels.signals.SignalsPanel',
+        'debug_toolbar.panels.logging.LoggingPanel',
+        'debug_toolbar.panels.redirects.RedirectsPanel',
+    ]
+
+    DEBUG_TOOLBAR_CONFIG = {
+        'INTERCEPT_REDIRECTS': False,
+        'SHOW_TOOLBAR_CALLBACK': show_toolbar,
+    }
+
+    QUERYCOUNT = {
+        'THRESHOLDS': {
+            'MEDIUM': 50,
+            'HIGH': 200,
+            'MIN_TIME_TO_LOG': 0,
+            'MIN_QUERY_COUNT_TO_LOG': 0
+        },
+        'IGNORE_REQUEST_PATTERNS': [],
+        'IGNORE_SQL_PATTERNS': [],
+        'DISPLAY_DUPLICATES': None,
+        'RESPONSE_HEADER': 'X-DjangoQueryCount-Count'
+    }

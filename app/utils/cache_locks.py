@@ -4,12 +4,14 @@ from django.core.cache import cache
 
 
 def timer(f):
+    s = {list, set, tuple}
+
     def decorated_func(*args, **kwargs):
         s_t = time.perf_counter()
         res = f(*args, **kwargs)
         f_t = time.perf_counter()
         class_info = ""
-        if args and isinstance(args[0], object):
+        if args and type(args[0]) not in s and isinstance(args[0], object):
             class_info = f" of {args[0]}"
         print(f"{f.__name__}{class_info} worked for {(f_t - s_t ):.5f} seconds")
         return res
@@ -17,20 +19,14 @@ def timer(f):
 
 
 @contextmanager
-def cache_lock(lock_id, oid, expire: int = None) -> bool:
-    # cache.add fails if the key already exists
-    status = cache.add(lock_id, oid, expire)
+def cache_lock(lock_name, timeout: int = None, blocking_timeout: int = None, sleep=0.1) -> bool:
+    lock = cache.lock(lock_name, timeout=timeout, blocking_timeout=blocking_timeout, sleep=sleep)
+    acquired = lock.acquire()
     try:
-        yield status
+        yield acquired
     finally:
-        # redis delete is very slow, but we have to use it to take
-        # advantage of using add() for atomic locking
-        if status:
-            # don't release the lock if we exceeded the timeout
-            # to lessen the chance of releasing an expired lock
-            # owned by someone else
-            # also don't release the lock if we didn't acquire it
-            cache.delete(lock_id)
+        if acquired:
+            lock.release()
 
 
 @contextmanager
