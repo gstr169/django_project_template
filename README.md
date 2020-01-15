@@ -1,3 +1,23 @@
+### Deploying
+
+0. Fill .env file with the settings.
+
+1. In the project folder, launch `docker-compose up -d --build`
+
+2. Pray!
+
+3. ???
+
+4. Check VIRTUAL_HOST if you use Traefik.
+
+OR
+
+4. Check localhost:8000 for your django project.
+
+5. PROFIT!!!
+
+### Settings
+
 This project use .env file for storing some settings. 
 
 Example stored in you_need.env
@@ -23,3 +43,5 @@ You can do it by `docker-compose down -v`
 `WORKERS=1` - amount of gunicorn workers _(by default - amount of cpu cores)_
 
 `APP_ENV=devel` - environment setting _(prod or dev/devel/developer)_
+
+`VIRTUAL_HOST=project.localhost` - url of your project, if you use my brand new Traefik config. 
