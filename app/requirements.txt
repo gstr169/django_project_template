@@ -1,6 +1,7 @@
 django
 psycopg2
 djangorestframework
+django-cors-headers
 gevent
 gunicorn
 celery
